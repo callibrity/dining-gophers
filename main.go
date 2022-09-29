@@ -1,75 +1,79 @@
 package main
 
 import (
+	"dining-gophers/sleep"
 	"fmt"
-	"math/rand"
 	"sync"
-	"time"
 )
 
-const FORK = 1
+const nForks = 5
+const hunger = 5
 
 func main() {
-	var forks = []chan int{
-		make(chan int, 1),
-		make(chan int, 1),
-		make(chan int, 1),
-		make(chan int, 1),
-		make(chan int, 1),
+	var forks = make([]chan int, nForks)
+	for i := 0; i < nForks; i++ {
+		forks[i] = make(chan int, 1)
 	}
-
 	var wg = sync.WaitGroup{}
-	wg.Add(len(forks))
-	for i := range forks {
+	wg.Add(nForks)
+
+	for i := 0; i < nForks; i++ {
 		var left = i
-		var right = (i + 1) % len(forks)
-		p := i
-		go func() {
-			if left < right {
-				runPhilosopher(p, forks[left], forks[right])
-			} else {
-				runPhilosopher(p, forks[right], forks[left])
+		var right = (i + 1) % nForks
+
+		go func(gopher int) {
+			for h := 0; h < hunger; h++ {
+				think(gopher)
+				fmt.Printf("Gopher %d finished thinking, time to pick up forks.\n", gopher)
+				if left < right {
+					fmt.Printf("Gopher %d picking up fork %d...\n", gopher, left)
+					<-forks[left]
+					fmt.Printf("Gopher %d picked up fork %d.\n", gopher, left)
+
+					fmt.Printf("Gopher %d picking up fork %d...\n", gopher, right)
+					<-forks[right]
+					fmt.Printf("Gopher %d picked up fork %d.\n", gopher, right)
+
+				} else {
+					fmt.Printf("Gopher %d picking up fork %d...\n", gopher, right)
+					<-forks[right]
+					fmt.Printf("Gopher %d picked up fork %d.\n", gopher, right)
+
+					fmt.Printf("Gopher %d picking up fork %d...\n", gopher, left)
+					<-forks[left]
+					fmt.Printf("Gopher %d picked up fork %d.\n", gopher, left)
+
+				}
+				fmt.Printf("Gopher %d picked up both forks, time to eat...\n", gopher)
+				eat(gopher)
+				fmt.Printf("Gopher %d finished eating, time to put down forks.\n", gopher)
+				fmt.Printf("Gopher %d trying to put down fork %d.\n", gopher, left)
+				forks[left] <- left
+				fmt.Printf("Gopher %d put down fork %d.\n", gopher, left)
+				fmt.Printf("Gopher %d trying to put down fork %d.\n", gopher, right)
+				forks[right] <- right
+				fmt.Printf("Gopher %d put down fork %d.\n", gopher, right)
 			}
 			wg.Done()
-		}()
+		}(i)
+
 	}
 
-	for i, c := range forks {
-		c <- i
+	for i := 0; i < nForks; i++ {
+		forks[i] <- i
 	}
 
-	fmt.Printf("Awaiting wait group...\n")
+	fmt.Println("Waiting for all gophers to finish thinking/eating...")
 	wg.Wait()
-
-	fmt.Printf("Everyone is done eating!")
+	fmt.Println("Everybody is finished!")
 }
 
-func runPhilosopher(philosopher int, first chan int, second chan int) {
-	for i := 1; i < 5; i++ {
-		think(philosopher)
-		fmt.Printf("Philosopher %d picking up first fork...\n", philosopher)
-		<-first
-		fmt.Printf("Philosopher %d picked up first fork.\n", philosopher)
-		fmt.Printf("Philosopher %d picking up second fork...\n", philosopher)
-		<-second
-		fmt.Printf("Philosopher %d picked up second fork...\n", philosopher)
-		eat(philosopher)
-		fmt.Printf("Philosopher %d putting down first fork...\n", philosopher)
-		first <- FORK
-		fmt.Printf("Philosopher %d putting down second fork...\n", philosopher)
-		second <- FORK
-	}
-	fmt.Printf("Philosopher %d is no longer hungry.\n", philosopher)
+func think(gopher int) {
+	fmt.Printf("Gopher %d thinking...\n", gopher)
+	sleep.RandomSleep()
 }
 
-func think(i int) {
-	thinkTime := rand.Intn(500) + 500
-	fmt.Printf("Philosopher %d thinking for %dms...\n", i, thinkTime)
-	time.Sleep(time.Duration(thinkTime) * time.Millisecond)
-}
-
-func eat(i int) {
-	eatTime := rand.Intn(500) + 500
-	fmt.Printf("Philosopher %d eating for %dms...\n", i, eatTime)
-	time.Sleep(time.Duration(eatTime) * time.Millisecond)
+func eat(gopher int) {
+	fmt.Printf("Gopher %d eating...\n", gopher)
+	sleep.RandomSleep()
 }
